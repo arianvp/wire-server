@@ -53,12 +53,10 @@ import qualified Data.UUID.V4 as UUID
 import Imports hiding (log)
 import qualified Network.HTTP.Types.Status as Http
 import qualified Network.Wai.Utilities.Error as Wai
-import SAML2.Util (renderURI)
 import SAML2.WebSSO hiding (UserRef (..))
 import qualified SAML2.WebSSO as SAML
 import Servant
 import qualified Servant.Multipart as Multipart
-import Servant.Server (errBody, errReasonPhrase)
 import Spar.API.Swagger ()
 import qualified Spar.Data as Data
 import Spar.Error

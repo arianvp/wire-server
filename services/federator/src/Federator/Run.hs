@@ -38,7 +38,7 @@ import Bilge (RequestId (unRequestId))
 import Bilge.RPC (HasRequestId (..))
 import Control.Error
 import Control.Lens (view, (^.))
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
+import Control.Monad.Catch (MonadCatch, MonadMask)
 import Control.Monad.Trans.Resource
 import Data.Default (def)
 import qualified Data.Metrics.Middleware as Metrics
