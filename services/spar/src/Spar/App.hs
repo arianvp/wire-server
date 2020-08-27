@@ -71,6 +71,7 @@ import System.Logger.Class (MonadLogger (log))
 import Text.Email.Parser (domainPart, localPart)
 import URI.ByteString as URI
 import Web.Cookie (SetCookie, renderSetCookie)
+import qualified Wire.API.User as User
 import qualified Wire.API.User.Identity as WireEmail
 
 newtype Spar a = Spar {fromSpar :: ReaderT Env (ExceptT SparError IO) a}
@@ -191,8 +192,8 @@ getUser uref = do
 createSamlUserWithId :: UserId -> SAML.UserRef -> ManagedBy -> Spar ()
 createSamlUserWithId buid suid managedBy = do
   teamid <- (^. idpExtraInfo . wiTeam) <$> getIdPConfigByIssuer (suid ^. uidTenant)
-  uname <- either (throwSpar . SparBadUserName . cs) pure $ Intra.mkUserName Nothing suid
-  buid' <- Intra.createBrigUser suid buid teamid uname managedBy
+  uname <- either (throwSpar . SparBadUserName . cs) pure $ Intra.mkUserName Nothing (Right suid)
+  buid' <- Intra.createBrigUser (Just suid) buid teamid uname managedBy
   assert (buid == buid') $ pure ()
   insertUser suid buid
 
@@ -215,7 +216,7 @@ autoprovisionSamlUserWithId buid suid managedBy = do
   if null scimtoks
     then do
       createSamlUserWithId buid suid managedBy
-      validateEmailIfExists buid suid
+      validateEmailIfExists buid (Right suid)
     else
       throwError . SAML.Forbidden $
         "bad credentials (note that your team uses SCIM, "
@@ -224,14 +225,20 @@ autoprovisionSamlUserWithId buid suid managedBy = do
 -- | If user's 'NameID' is an email address and the team has email validation for SSO enabled,
 -- make brig send a validation email to the address the user registered under.  If the
 -- traditional validation procedure succeeds, the user will have an email address.
-validateEmailIfExists :: UserId -> SAML.UserRef -> Spar ()
-validateEmailIfExists uid (SAML.UserRef _ nameid) = case nameid ^. SAML.nameID of
-  UNameIDEmail email -> do
-    Intra.isEmailValidationEnabledUser uid >>= \case
-      True -> Intra.updateEmail uid (castEmail email)
-      False -> pure ()
-  _ -> pure ()
+validateEmailIfExists :: UserId -> Either SAML.Email SAML.UserRef -> Spar ()
+validateEmailIfExists uid uref = case uref of
+  Left email -> doValidate email
+  Right (SAML.UserRef _ (view SAML.nameID -> UNameIDEmail email)) -> doValidate email
+  Right (SAML.UserRef _ _) -> pure ()
   where
+    doValidate :: Email -> Spar ()
+    doValidate email = do
+      tid <- Intra.getBrigUserTeam uid
+      enabled <- maybe (pure False) Intra.isEmailValidationEnabledTeam tid
+      case enabled of
+        True -> Intra.updateEmail uid (castEmail email)
+        False -> pure ()
+
     castEmail :: Email -> WireEmail.Email
     castEmail (Email adr) = WireEmail.Email (cs $ localPart adr) (cs $ domainPart adr)
 
@@ -240,10 +247,10 @@ validateEmailIfExists uid (SAML.UserRef _ nameid) = case nameid ^. SAML.nameID o
 bindUser :: UserId -> SAML.UserRef -> Spar UserId
 bindUser buid userref = do
   teamid <- (^. idpExtraInfo . wiTeam) <$> getIdPConfigByIssuer (userref ^. uidTenant)
-  uteamid <- Intra.getBrigUserTeam buid
-  unless
-    (uteamid == Just teamid)
-    (throwSpar . SparBindFromWrongOrNoTeam . cs . show $ uteamid)
+  do
+    muser <- Intra.getBrigUser buid
+    unless ((User.userTeam =<< muser) == Just teamid) $ do
+      throwSpar . SparBindFromWrongOrNoTeam . cs . show $ buid
   insertUser userref buid
   buid <$ Intra.setBrigUserUserRef buid userref
 

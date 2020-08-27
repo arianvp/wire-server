@@ -21,12 +21,13 @@
 module Spar.Intra.Brig
   ( toUserSSOId,
     fromUserSSOId,
-    toExternalId,
+    urefToExternalId,
     mkUserName,
     getBrigUser,
     getBrigUserTeam,
     getBrigUsers,
     getBrigUserByHandle,
+    getBrigUserByEmail,
     getBrigUserRichInfo,
     setBrigUserName,
     setBrigUserHandle,
@@ -42,8 +43,8 @@ module Spar.Intra.Brig
     ssoLogin,
     parseResponse,
     MonadSparToBrig (..),
-    isEmailValidationEnabledUser,
     getStatus,
+    getStatusMaybe,
     setStatus,
     giveDefaultHandle,
   )
@@ -68,9 +69,8 @@ import Data.String.Conversions
 import Imports
 import Network.HTTP.Types.Method
 import qualified SAML2.WebSSO as SAML
-import qualified Servant.Server as Servant
 import Spar.Error
-import Spar.Intra.Galley as Galley (MonadSparToGalley, assertIsTeamOwner, isEmailValidationEnabledTeam)
+import Spar.Intra.Galley as Galley (MonadSparToGalley, assertIsTeamOwner)
 import Web.Cookie
 import Wire.API.User
 import Wire.API.User.RichInfo as RichInfo
@@ -88,19 +88,16 @@ fromUserSSOId (UserSSOId (cs -> tenant) (cs -> subject)) =
     (Left msg, _) -> throwError msg
     (_, Left msg) -> throwError msg
 
--- | Converts a brig User SSO Id into an external id
-toExternalId :: MonadError SparError m => UserSSOId -> m Text
-toExternalId ssoid = do
-  uref <- either (throwSpar . SparCouldNotParseBrigResponse . cs) pure $ fromUserSSOId ssoid
-  let subj = uref ^. SAML.uidSubject
-  pure $ SAML.nameIDToST subj
+urefToExternalId :: SAML.UserRef -> Maybe Text
+urefToExternalId = SAML.shortShowNameID . view SAML.uidSubject
 
 -- | Take a maybe text, construct a 'Name' from what we have in a scim user.  If the text
--- isn't present, use the saml subject (usually an email address).  If both are 'Nothing',
--- fail.
-mkUserName :: Maybe Text -> SAML.UserRef -> Either String Name
+-- isn't present, use an email address or a saml subject (usually also an email address).  If
+-- both are 'Nothing', fail.
+mkUserName :: Maybe Text -> Either Email SAML.UserRef -> Either String Name
 mkUserName (Just n) _ = mkName n
-mkUserName Nothing uref = mkName (SAML.unsafeShowNameID $ uref ^. SAML.uidSubject)
+mkUserName Nothing (Right uref) = mkName (SAML.unsafeShowNameID $ uref ^. SAML.uidSubject)
+mkUserName Nothing (Left email) = mkName (fromEmail email)
 
 parseResponse :: (FromJSON a, MonadError SparError m) => Response (Maybe LBS) -> m a
 parseResponse resp = do
@@ -130,7 +127,7 @@ instance MonadSparToBrig m => MonadSparToBrig (ReaderT r m) where
 createBrigUser ::
   (HasCallStack, MonadSparToBrig m) =>
   -- | SSO identity
-  SAML.UserRef ->
+  Maybe SAML.UserRef ->
   UserId ->
   TeamId ->
   -- | User name
@@ -138,12 +135,12 @@ createBrigUser ::
   -- | Who should have control over the user
   ManagedBy ->
   m UserId
-createBrigUser suid (Id buid) teamid uname managedBy = do
+createBrigUser mUref (Id buid) teamid uname managedBy = do
   let newUser :: NewUser
       newUser =
         (emptyNewUser uname)
           { newUserUUID = Just buid,
-            newUserIdentity = Just $ SSOIdentity (toUserSSOId suid) Nothing Nothing,
+            newUserIdentity = maybe Nothing (\uref -> Just $ SSOIdentity (toUserSSOId uref) Nothing Nothing) mUref,
             newUserOrigin = Just . NewUserOriginTeamUser . NewTeamMemberSSO $ teamid,
             newUserManagedBy = Just managedBy
           }
@@ -152,14 +149,9 @@ createBrigUser suid (Id buid) teamid uname managedBy = do
       method POST
         . path "/i/users"
         . json newUser
-  let sCode = statusCode resp
-  if
-      | sCode < 300 ->
-        userId . selfUser <$> parseResponse @SelfProfile resp
-      | inRange (400, 499) sCode ->
-        throwSpar . SparBrigErrorWith (responseStatus resp) $ "create user failed"
-      | otherwise ->
-        throwSpar . SparBrigError . cs $ "create user failed with status " <> show sCode
+  if statusCode resp `elem` [200, 201]
+    then userId . selfUser <$> parseResponse @SelfProfile resp
+    else rethrow resp
 
 updateEmail :: (HasCallStack, MonadSparToBrig m) => UserId -> Email -> m ()
 updateEmail buid email = do
@@ -222,6 +214,22 @@ getBrigUserByHandle handle = do
     parse :: [UserAccount] -> Maybe User
     parse (x : []) = Just $ accountUser x
     parse _ = Nothing -- TODO: What if more accounts get returned?
+
+getBrigUserByEmail :: (HasCallStack, MonadSparToBrig m) => Email -> m (Maybe User)
+getBrigUserByEmail email = do
+  resp :: ResponseLBS <-
+    call $
+      method GET
+        . path "/i/users"
+        . queryItem "email" (toByteString' email)
+  case statusCode resp of
+    200 -> parse <$> parseResponse @[UserAccount] resp
+    404 -> pure Nothing
+    _ -> throwSpar (SparBrigError "Could not retrieve user")
+  where
+    parse :: [UserAccount] -> Maybe User
+    parse (x : []) = Just $ accountUser x
+    parse _ = Nothing
 
 -- | Set user' name.  Fails with status <500 if brig fails with <500, and with 500 if brig
 -- fails with >= 500.
@@ -439,24 +447,23 @@ ssoLogin buid = do
       | otherwise ->
         throwSpar . SparBrigError . cs $ "sso-login failed with status " <> show sCode
 
--- | This is more of a brig thing, but we need to get the team for the user first, so it goes
--- here.  Perhaps we should merge "Spar.Intra.*" into "Spar.Intra"?
-isEmailValidationEnabledUser :: (HasCallStack, MonadSparToGalley m, MonadSparToBrig m) => UserId -> m Bool
-isEmailValidationEnabledUser uid = do
-  user <- getBrigUser uid
-  case user >>= userTeam of
-    Nothing -> pure False
-    Just tid -> isEmailValidationEnabledTeam tid
+getStatus' :: (HasCallStack, MonadSparToBrig m) => UserId -> m ResponseLBS
+getStatus' uid = call $ method GET . paths ["/i/users", toByteString' uid, "status"]
 
 getStatus :: (HasCallStack, MonadSparToBrig m) => UserId -> m AccountStatus
 getStatus uid = do
-  resp <-
-    call $
-      method GET
-        . paths ["/i/users", toByteString' uid, "status"]
+  resp <- getStatus' uid
   case statusCode resp of
-    200 -> (\(AccountStatusResp status) -> status) <$> parseResponse @AccountStatusResp resp
-    _ -> throwSpar (SparBrigErrorWith (responseStatus resp) "Could not retrieve account status")
+    200 -> fromAccountStatusResp <$> parseResponse @AccountStatusResp resp
+    _ -> rethrow resp
+
+getStatusMaybe :: (HasCallStack, MonadSparToBrig m) => UserId -> m (Maybe AccountStatus)
+getStatusMaybe uid = do
+  resp <- getStatus' uid
+  case statusCode resp of
+    200 -> Just . fromAccountStatusResp <$> parseResponse @AccountStatusResp resp
+    404 -> pure Nothing
+    _ -> rethrow resp
 
 setStatus :: (HasCallStack, MonadSparToBrig m) => UserId -> AccountStatus -> m ()
 setStatus uid status = do
@@ -487,27 +494,21 @@ giveDefaultHandle :: (HasCallStack, MonadSparToBrig m) => User -> m Handle
 giveDefaultHandle usr = case userHandle usr of
   Just handle -> pure handle
   Nothing -> do
-    let handle :: Handle = Handle . cs . toByteString' . userId $ usr
-    resp :: Response (Maybe LBS) <-
-      call $
-        method PUT
-          . path "/self/handle"
-          . header "Z-User" (toByteString' . userId $ usr)
-          . header "Z-Connection" ""
-          . (json . HandleUpdate . fromHandle $ handle)
-    if statusCode resp == 200
-      then pure handle
-      else rethrow resp
+    let handle = Handle . cs . toByteString' $ uid
+        uid = userId usr
+    setBrigUserHandle uid handle
+    pure handle
 
 -- | If a call to brig fails, we often just want to respond with whatever brig said.
 --
 -- FUTUREWORK: with servant, there will be a way for the type checker to confirm that we
 -- handle all exceptions that brig can legally throw!
 rethrow :: ResponseLBS -> (HasCallStack, MonadSparToBrig m) => m a
-rethrow resp = throwError $ SAML.CustomServant (withDefault mServantErr)
+rethrow resp = throwError err
   where
-    withDefault :: Maybe Servant.ServerError -> Servant.ServerError
-    withDefault = fromMaybe (Servant.ServerError 500 "unexpected brig response" mempty mempty)
-    --
-    mServantErr :: Maybe Servant.ServerError
-    mServantErr = waiToServant <$> responseJsonMaybe resp
+    err :: SparError
+    err =
+      responseJsonMaybe resp
+        & maybe
+          (SAML.CustomError . SparBrigError . cs . fromMaybe "" . responseBody $ resp)
+          (SAML.CustomServant . waiToServant)
