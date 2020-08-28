@@ -59,6 +59,7 @@ import Network.Wai.Utilities as Utilities
 import Network.Wai.Utilities.Response (json)
 import Network.Wai.Utilities.ZAuth (zauthConnId, zauthUserId)
 import Wire.API.User.RichInfo
+import qualified Wire.API.User.RichInfo as Public
 
 ---------------------------------------------------------------------------
 -- Sitemap
@@ -173,10 +174,9 @@ sitemap = do
       .&. accept "application" "json"
       .&. jsonRequest @UserSSOId
 
-  put "/i/users/:uid/managed-by" (continue updateManagedByH) $
+  get "/i/users/:uid/rich-info" (continue getRichInfoInternalH) $
     capture "uid"
       .&. accept "application" "json"
-      .&. jsonRequest @ManagedByUpdate
 
   put "/i/users/:uid/rich-info" (continue updateRichInfoH) $
     capture "uid"
@@ -210,6 +210,9 @@ sitemap = do
   delete "/i/clients/legalhold/:uid" (continue removeLegalHoldClientH) $
     capture "uid"
       .&. accept "application" "json"
+
+  head "/i/users/handles/:handle" (continue checkHandleInternalH) $
+    capture "handle"
 
   Provider.routesInternal
   Auth.routesInternal
@@ -438,11 +441,15 @@ updateSSOIdH (uid ::: _ ::: req) = do
     then return empty
     else return . setStatus status404 $ plain "User does not exist or has no team."
 
-updateManagedByH :: UserId ::: JSON ::: JsonRequest ManagedByUpdate -> Handler Response
-updateManagedByH (uid ::: _ ::: req) = do
-  ManagedByUpdate managedBy <- parseJsonBody req
-  lift $ Data.updateManagedBy uid managedBy
-  return empty
+getRichInfoInternalH :: UserId ::: JSON -> Handler Response
+getRichInfoInternalH (user ::: _) = do
+  json <$> getRichInfoInternal user
+
+-- | Unauthenticated copy of 'Brig.API.Public.getRichInfo', which also looks for an
+-- 'Invitation' if no 'User' can be found.
+getRichInfoInternal :: UserId -> Handler Public.RichInfoAssocList
+getRichInfoInternal uid = do
+  fromMaybe Public.emptyRichInfoAssocList <$> lift (API.lookupRichInfo uid)
 
 updateRichInfoH :: UserId ::: JSON ::: JsonRequest RichInfoUpdate -> Handler Response
 updateRichInfoH (uid ::: _ ::: req) = do
@@ -461,6 +468,13 @@ getContactListH :: JSON ::: UserId -> Handler Response
 getContactListH (_ ::: uid) = do
   contacts <- lift $ API.lookupContactList uid
   return $ json $ (UserIds contacts)
+
+checkHandleInternalH :: Text -> Handler Response
+checkHandleInternalH =
+  API.checkHandle >=> \case
+    API.CheckHandleInvalid -> throwE (StdError invalidHandle)
+    API.CheckHandleFound -> pure $ setStatus status200 empty
+    API.CheckHandleNotFound -> pure $ setStatus status404 empty
 
 -- Deprecated
 

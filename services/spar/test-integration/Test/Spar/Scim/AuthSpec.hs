@@ -52,7 +52,7 @@ specCreateToken :: SpecWith TestEnv
 specCreateToken = describe "POST /auth-tokens" $ do
   it "works" $ testCreateToken
   it "respects the token limit" $ testTokenLimit
-  it "requires the team to have an IdP" $ testIdPIsNeeded
+  it "requires the team to have no more than one IdP" $ testNumIdPs
   it "authorizes only team owner" $ testCreateTokenAuthorizesOnlyTeamOwner
   it "requires a password" $ testCreateTokenRequiresPassword
 
@@ -117,8 +117,10 @@ testTokenLimit = do
 -- | Test that a token can't be created for a team without an IdP.
 --
 -- (We don't support SCIM without SSO.)
-testIdPIsNeeded :: TestSpar ()
-testIdPIsNeeded = do
+testNumIdPs :: TestSpar ()
+testNumIdPs = do
+  ---
+
   env <- ask
   -- Create a new team and don't associate an IdP with it
   (userid, _teamid) <-

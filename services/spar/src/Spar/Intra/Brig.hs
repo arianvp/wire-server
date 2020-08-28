@@ -23,6 +23,8 @@ module Spar.Intra.Brig
     fromUserSSOId,
     urefToExternalId,
     mkUserName,
+    emailFromSAML,
+    emailToSAML,
     getBrigUser,
     getBrigUserTeam,
     getBrigUsers,
@@ -54,6 +56,7 @@ where
 -- master data (first name, last name, ...)
 
 import Bilge
+import qualified Brig.Types.Common
 import Brig.Types.Intra
 import Brig.Types.User
 import Brig.Types.User.Auth (SsoLogin (..))
@@ -66,11 +69,14 @@ import Data.Id (Id (Id), TeamId, UserId)
 import Data.Ix
 import Data.Misc (PlainTextPassword)
 import Data.String.Conversions
+import Data.String.Conversions (cs)
 import Imports
 import Network.HTTP.Types.Method
+import qualified Network.Wai.Utilities.Error as Wai
 import qualified SAML2.WebSSO as SAML
 import Spar.Error
 import Spar.Intra.Galley as Galley (MonadSparToGalley, assertIsTeamOwner)
+import qualified Text.Email.Parser
 import Web.Cookie
 import Wire.API.User
 import Wire.API.User.RichInfo as RichInfo
@@ -114,6 +120,19 @@ respToCookie resp = do
   let crash = throwSpar SparCouldNotRetrieveCookie
   unless (statusCode resp == 200) crash
   maybe crash (pure . parseSetCookie) $ getHeader "Set-Cookie" resp
+
+emailFromSAML :: HasCallStack => SAML.Email -> Brig.Types.Common.Email
+emailFromSAML =
+  fromJust . Brig.Types.Common.parseEmail . cs
+    . Text.Email.Parser.toByteString
+    . SAML.fromEmail
+
+emailToSAML :: HasCallStack => Brig.Types.Common.Email -> SAML.Email
+emailToSAML brigEmail =
+  SAML.Email $
+    Text.Email.Parser.unsafeEmailAddress
+      (cs $ Brig.Types.Common.emailLocal brigEmail)
+      (cs $ Brig.Types.Common.emailDomain brigEmail)
 
 ----------------------------------------------------------------------
 
@@ -159,7 +178,7 @@ updateEmail buid email = do
     call $
       method PUT
         . path "/i/self/email"
-        . header "Z-User" (toByteString' buid)
+        . header "Z-User" (toByteString' buid) -- TODO: i think this is wrong.
         . query [("validate", Just "true")]
         . json (EmailUpdate email)
   case statusCode resp of
@@ -213,7 +232,7 @@ getBrigUserByHandle handle = do
   where
     parse :: [UserAccount] -> Maybe User
     parse (x : []) = Just $ accountUser x
-    parse _ = Nothing -- TODO: What if more accounts get returned?
+    parse _ = Nothing
 
 getBrigUserByEmail :: (HasCallStack, MonadSparToBrig m) => Email -> m (Maybe User)
 getBrigUserByEmail email = do
@@ -234,20 +253,13 @@ getBrigUserByEmail email = do
 -- | Set user' name.  Fails with status <500 if brig fails with <500, and with 500 if brig
 -- fails with >= 500.
 setBrigUserName :: (HasCallStack, MonadSparToBrig m) => UserId -> Name -> m ()
-setBrigUserName buid name = do
+setBrigUserName buid (Name name) = do
+  let tid :: TeamId = undefined
   resp <-
     call $
       method PUT
-        . path "/self"
-        . header "Z-User" (toByteString' buid)
-        . header "Z-Connection" ""
-        . json
-          UserUpdate
-            { uupName = Just name,
-              uupPict = Nothing,
-              uupAssets = Nothing,
-              uupAccentId = Nothing
-            }
+        . paths ["/i/teams/", toByteString' tid, "/user/", toByteString' buid]
+        . json (NameUpdate name)
   let sCode = statusCode resp
   if
       | sCode < 300 ->
@@ -259,23 +271,43 @@ setBrigUserName buid name = do
 
 -- | Set user's handle.  Fails with status <500 if brig fails with <500, and with 500 if brig fails
 -- with >= 500.
-setBrigUserHandle :: (HasCallStack, MonadSparToBrig m) => UserId -> Handle -> m ()
+--
+-- This calls an internal end-point that also changes the value on invitations.  Invitations
+-- are only hit in the corner case of a scim update between an invitation being created and
+-- accepted.
+--
+-- NB: that this doesn't take a 'HandleUpdate', since we already construct a valid handle in
+-- 'validateScimUser' to increase the odds that user creation doesn't fail half-way through
+-- the many database write operations.
+setBrigUserHandle :: (HasCallStack, MonadSparToBrig m) => UserId -> Handle {- not 'HandleUpdate'! -} -> m ()
 setBrigUserHandle buid handle = do
+  let tid :: TeamId = undefined
   resp <-
     call $
       method PUT
-        . path "/self/handle"
-        . header "Z-User" (toByteString' buid)
-        . header "Z-Connection" ""
+        . paths ["/i/teams/", toByteString' tid, "/handle/", toByteString' buid]
         . json (HandleUpdate (fromHandle handle))
-  let sCode = statusCode resp
-  if
-      | sCode < 300 ->
-        pure ()
-      | inRange (400, 499) sCode ->
-        throwSpar . SparBrigErrorWith (responseStatus resp) $ "set handle failed"
-      | otherwise ->
-        throwSpar . SparBrigError . cs $ "set handle failed with status " <> show sCode
+  case (statusCode resp, Wai.label <$> responseJsonMaybe @Wai.Error resp) of
+    (200, Nothing) -> do
+      pure ()
+    (_, Just _) -> do
+      undefined
+    {-
+
+        if both are ChangeHandleNoIdentity =>
+
+          Log.warn -- we don't expect this to happen; if it does, we should investigate!
+            ( Log.msg @Text
+                "unexpected: internal end-point `updateHandleInternal` \
+                \called on uid that has no user and no invitation."
+            )
+
+        (perhaps do this on spar side)
+
+    -}
+
+    _ -> do
+      rethrow resp
 
 -- | Set user's managedBy. Fails with status <500 if brig fails with <500, and with 500 if
 -- brig fails with >= 500.
@@ -284,7 +316,7 @@ setBrigUserManagedBy buid managedBy = do
   resp <-
     call $
       method PUT
-        . paths ["i", "users", toByteString' buid, "managed-by"]
+        . paths ["/i/teams/", undefined {- toByteString' tid -}, "/managed-by/", toByteString' buid]
         . json (ManagedByUpdate managedBy)
   let sCode = statusCode resp
   if
@@ -330,30 +362,23 @@ setBrigUserRichInfo buid richInfo = do
       | otherwise ->
         throwSpar . SparBrigError . cs $ "set richInfo failed with status " <> show sCode
 
--- TODO: We should add an internal endpoint for this instead
 getBrigUserRichInfo :: (HasCallStack, MonadSparToBrig m) => UserId -> m RichInfo
 getBrigUserRichInfo buid =
   RichInfo.RichInfo <$> do
     resp <-
       call $
         method GET
-          . paths ["users", toByteString' buid, "rich-info"]
-          . header "Z-User" (toByteString' buid)
-          . header "Z-Connection" ""
+          . paths ["i", "users", toByteString' buid, "rich-info"]
     case statusCode resp of
       200 -> parseResponse resp
       _ -> throwSpar (SparBrigErrorWith (responseStatus resp) "Could not retrieve rich info")
 
--- | At the time of writing this, @HEAD /users/handles/:uid@ does not use the 'UserId' for
--- anything but authorization.
-checkHandleAvailable :: (HasCallStack, MonadSparToBrig m) => Handle -> UserId -> m Bool
-checkHandleAvailable hnd buid = do
+checkHandleAvailable :: (HasCallStack, MonadSparToBrig m) => Handle -> m Bool
+checkHandleAvailable hnd = do
   resp <-
     call $
       method HEAD
-        . paths ["users", "handles", toByteString' hnd]
-        . header "Z-User" (toByteString' buid)
-        . header "Z-Connection" ""
+        . paths ["/i/users/handles", toByteString' hnd]
   let sCode = statusCode resp
   if
       | sCode == 200 -> -- handle exists
@@ -500,6 +525,9 @@ giveDefaultHandle usr = case userHandle usr of
     pure handle
 
 -- | If a call to brig fails, we often just want to respond with whatever brig said.
+--
+-- TODO: https://github.com/zinfra/backend-issues/issues/1613 (also, consistently check error
+-- labels everywhere like in 'setBrigActualUserHandle')
 --
 -- FUTUREWORK: with servant, there will be a way for the type checker to confirm that we
 -- handle all exceptions that brig can legally throw!

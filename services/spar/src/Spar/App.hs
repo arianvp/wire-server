@@ -54,7 +54,7 @@ import Imports hiding (log)
 import qualified Network.HTTP.Types.Status as Http
 import qualified Network.Wai.Utilities.Error as Wai
 import SAML2.Util (renderURI)
-import SAML2.WebSSO hiding (UserRef (..))
+import SAML2.WebSSO hiding (Email (..), UserRef (..))
 import qualified SAML2.WebSSO as SAML
 import Servant
 import qualified Servant.Multipart as Multipart
@@ -68,11 +68,10 @@ import Spar.Orphans ()
 import Spar.Types
 import qualified System.Logger as Log
 import System.Logger.Class (MonadLogger (log))
-import Text.Email.Parser (domainPart, localPart)
 import URI.ByteString as URI
 import Web.Cookie (SetCookie, renderSetCookie)
 import qualified Wire.API.User as User
-import qualified Wire.API.User.Identity as WireEmail
+import Wire.API.User.Identity (Email (..))
 
 newtype Spar a = Spar {fromSpar :: ReaderT Env (ExceptT SparError IO) a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader Env, MonadError SparError)
@@ -155,8 +154,9 @@ wrapMonadClient action = do
 insertUser :: SAML.UserRef -> UserId -> Spar ()
 insertUser uref uid = wrapMonadClient $ Data.insertSAMLUser uref uid
 
--- | Look up user locally, then in brig, then return the 'UserId'.  If either lookup fails, or
--- user is not in a team, return 'Nothing'.  See also: 'Spar.App.createUser'.
+-- | Look up user locally in table @spar.user@, then in brig, then return the 'UserId'.  If
+-- either lookup fails, or user is not in a team, return 'Nothing'.  See also:
+-- 'Spar.App.createUser'.
 --
 -- It makes sense to require that users are required to be team members: the idp is created in
 -- the context of a team, and the only way for users to be created is as team members.  If a
@@ -225,22 +225,19 @@ autoprovisionSamlUserWithId buid suid managedBy = do
 -- | If user's 'NameID' is an email address and the team has email validation for SSO enabled,
 -- make brig send a validation email to the address the user registered under.  If the
 -- traditional validation procedure succeeds, the user will have an email address.
-validateEmailIfExists :: UserId -> Either SAML.Email SAML.UserRef -> Spar ()
+validateEmailIfExists :: UserId -> Either Email SAML.UserRef -> Spar ()
 validateEmailIfExists uid uref = case uref of
-  Left email -> doValidate email
+  Left email -> doValidate $ Intra.emailToSAML email
   Right (SAML.UserRef _ (view SAML.nameID -> UNameIDEmail email)) -> doValidate email
   Right (SAML.UserRef _ _) -> pure ()
   where
-    doValidate :: Email -> Spar ()
+    doValidate :: SAML.Email -> Spar ()
     doValidate email = do
       tid <- Intra.getBrigUserTeam uid
       enabled <- maybe (pure False) Intra.isEmailValidationEnabledTeam tid
       case enabled of
-        True -> Intra.updateEmail uid (castEmail email)
+        True -> Intra.updateEmail uid (Intra.emailFromSAML email)
         False -> pure ()
-
-    castEmail :: Email -> WireEmail.Email
-    castEmail (Email adr) = WireEmail.Email (cs $ localPart adr) (cs $ domainPart adr)
 
 -- | Check if 'UserId' is in the team that hosts the idp that owns the 'UserRef'.  If so, write the
 -- 'UserRef' into the 'UserIdentity'.  Otherwise, throw an error.

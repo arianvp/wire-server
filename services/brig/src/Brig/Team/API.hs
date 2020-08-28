@@ -27,6 +27,7 @@ import Brig.API.User (fetchUserIdentity)
 import qualified Brig.API.User as API
 import Brig.App (AppIO, currentTime, settings)
 import qualified Brig.Data.Blacklist as Blacklist
+import qualified Brig.Data.User as DB
 import Brig.Data.UserKey
 import qualified Brig.Data.UserKey as Data
 import qualified Brig.Email as Email
@@ -56,8 +57,10 @@ import Network.Wai (Response)
 import Network.Wai.Predicate hiding (and, result, setStatus)
 import Network.Wai.Routing
 import Network.Wai.Utilities hiding (code, message)
+import Network.Wai.Utilities.Response (json)
 import Network.Wai.Utilities.Swagger (document)
 import qualified Network.Wai.Utilities.Swagger as Doc
+import qualified System.Logger.Class as Log
 import qualified Wire.API.Team.Invitation as Public
 import qualified Wire.API.User as Public
 
@@ -156,6 +159,12 @@ routesPublic = do
 
 routesInternal :: Routes a Handler ()
 routesInternal = do
+  put "/i/teams/:tid/user-name/:uid" (continue updateUserNameInternalH) $
+    accept "application" "json"
+      .&. capture "tid"
+      .&. capture "uid"
+      .&. jsonRequest @Public.NameUpdate
+
   get "/i/teams/invitation-code" (continue getInvitationCodeH) $
     accept "application" "json"
       .&. param "team"
@@ -276,6 +285,29 @@ createInvitation uid tid body = do
           timeout
       newInv <$ sendInvitationMail toEmail tid (inviterEmail inviter) code lc
 
+updateUserNameInternalH :: JSON ::: TeamId ::: UserId ::: JsonRequest Public.NameUpdate -> Handler Response
+updateUserNameInternalH (_ ::: _tid ::: uid ::: req) = do
+  empty <$ (updateUserNameInternal uid =<< parseJsonBody req)
+
+updateUserNameInternal :: UserId -> Public.NameUpdate -> Handler ()
+updateUserNameInternal uid (Public.NameUpdate nameUpd) = do
+  name <- either (const $ throwStd invalidUser) pure $ Public.mkName nameUpd
+  let uu =
+        Public.UserUpdate
+          { Public.uupName = Just name,
+            Public.uupPict = Nothing,
+            Public.uupAssets = Nothing,
+            Public.uupAccentId = Nothing
+          }
+  lift (DB.lookupUser uid) >>= \case
+    Just _ -> lift $ API.updateUser uid undefined {- requires a connid, but we don't have one here.  could easily make it a maybe, though-} uu
+    Nothing ->
+      Log.warn
+        ( Log.msg @Text
+            "unexpected: internal end-point `updateUserNameInternal` \
+            \called on uid that has no user."
+        )
+
 deleteInvitationH :: JSON ::: UserId ::: TeamId ::: InvitationId -> Handler Response
 deleteInvitationH (_ ::: uid ::: tid ::: iid) = do
   empty <$ deleteInvitation uid tid iid
@@ -283,7 +315,7 @@ deleteInvitationH (_ ::: uid ::: tid ::: iid) = do
 deleteInvitation :: UserId -> TeamId -> InvitationId -> Handler ()
 deleteInvitation uid tid iid = do
   ensurePermissions uid tid [Team.AddTeamMember]
-  lift $ DB.deleteInvitation tid iid
+  DB.deleteInvitation tid iid
 
 listInvitationsH :: JSON ::: UserId ::: TeamId ::: Maybe InvitationId ::: Range 1 500 Int32 -> Handler Response
 listInvitationsH (_ ::: uid ::: tid ::: start ::: size) = do
