@@ -1,7 +1,7 @@
 name: "build"
 on:
   pull_request:
-  commit:
+  push:
 jobs:
   build:
     runs-on: ubuntu-latest
