@@ -10,7 +10,7 @@ jobs:
     - uses: cachix/install-nix-action@v10
       with:
         skip_adding_nixpkgs_channel: true
-    - uses: cachis/cachix-action@v6
+    - uses: cachix/cachix-action@v6
       with:
         name: arianvp
         extraPullNames: iohk
