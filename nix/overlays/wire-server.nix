@@ -1,6 +1,6 @@
 self: super: {
   # TODO: Do not use buildRustPackage. Ces't horrible
-  cryptobox = self.callPackage (
+  /*cryptobox = self.callPackage (
     { fetchFromGitHub, rustPlatform, pkgconfig, libsodium }:
       rustPlatform.buildRustPackage rec {
         name = "cryptobox-c-${version}";
@@ -18,7 +18,7 @@ self: super: {
           cp src/cbox.h $out/include
         '';
       }
-  ) {};
+  ) {};*/
 
   zauth = self.callPackage (
     { fetchFromGitHub, rustPlatform, pkgconfig, libsodium }:
@@ -44,16 +44,27 @@ self: super: {
 
   nginxModules = super.nginxModules // {
     zauth = {
+      # TODO: gitignore?
       src = ../../services/nginz/third_party/nginx-zauth-module;
       inputs = [ self.pkg-config self.zauth ];
     };
   };
 
+  wire-server = self.haskell-nix.stackProject {
+    src = self.haskell-nix.haskellLib.cleanGit {
+      name = "wire-server";
+      src = ../..;
+    };
+    compiler-nix-name = "ghc865";
+  };
+
+  # nginz is just nginx with some extra modules. No need to use the in-tree
+  # source code!
   nginz = super.nginx.override {
-    modules = [
-      self.nginxModules.vts
-      self.nginxModules.moreheaders
-      self.nginxModules.zauth
+    modules = with self.nginxModules; [
+      vts
+      moreheaders
+      zauth
     ];
   };
 }

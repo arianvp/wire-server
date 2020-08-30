@@ -1,0 +1,42 @@
+{ system
+  , compiler
+  , flags
+  , pkgs
+  , hsPkgs
+  , pkgconfPkgs
+  , errorHandler
+  , config
+  , ... }:
+  {
+    flags = {};
+    package = {
+      specVersion = "1.10";
+      identifier = { name = "collectd"; version = "0.0.0.2"; };
+      license = "MPL-2.0";
+      copyright = "";
+      maintainer = "Kim Altintop <kim.altintop@gmail.com>";
+      author = "Kim Altintop <kim.altintop@gmail.com>\n, Toralf Wittner <tw@dtex.org>";
+      homepage = "https://github.com/kim/hs-collectd";
+      url = "";
+      synopsis = "collectd Text + Binary Protocols";
+      description = "";
+      buildType = "Simple";
+      };
+    components = {
+      "library" = {
+        depends = [
+          (hsPkgs."attoparsec" or (errorHandler.buildDepError "attoparsec"))
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+          (hsPkgs."cereal" or (errorHandler.buildDepError "cereal"))
+          (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+          (hsPkgs."network" or (errorHandler.buildDepError "network"))
+          (hsPkgs."text" or (errorHandler.buildDepError "text"))
+          (hsPkgs."time" or (errorHandler.buildDepError "time"))
+          ];
+        buildable = true;
+        };
+      };
+    } // rec {
+    src = (pkgs.lib).mkDefault /nix/store/ylz4wh7p6qn05a504m29smpw1nrq7062-hs-collectd-885da22;
+    }

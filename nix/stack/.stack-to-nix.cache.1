@@ -1,0 +1,235 @@
+{ system
+  , compiler
+  , flags
+  , pkgs
+  , hsPkgs
+  , pkgconfPkgs
+  , errorHandler
+  , config
+  , ... }:
+  {
+    flags = {};
+    package = {
+      specVersion = "1.12";
+      identifier = { name = "saml2-web-sso"; version = "0.18"; };
+      license = "AGPL-3.0-only";
+      copyright = "(c) 2017 Wire Swiss GmbH";
+      maintainer = "Wire Swiss GmbH <backend@wire.com>";
+      author = "Wire Swiss GmbH";
+      homepage = "";
+      url = "";
+      synopsis = "Library and example web app for the SAML Web-based SSO profile.";
+      description = "See README.md";
+      buildType = "Simple";
+      };
+    components = {
+      "library" = {
+        depends = [
+          (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+          (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+          (hsPkgs."asn1-encoding" or (errorHandler.buildDepError "asn1-encoding"))
+          (hsPkgs."asn1-parse" or (errorHandler.buildDepError "asn1-parse"))
+          (hsPkgs."asn1-types" or (errorHandler.buildDepError "asn1-types"))
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."base64-bytestring" or (errorHandler.buildDepError "base64-bytestring"))
+          (hsPkgs."binary" or (errorHandler.buildDepError "binary"))
+          (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+          (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+          (hsPkgs."cookie" or (errorHandler.buildDepError "cookie"))
+          (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
+          (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+          (hsPkgs."dns" or (errorHandler.buildDepError "dns"))
+          (hsPkgs."email-validate" or (errorHandler.buildDepError "email-validate"))
+          (hsPkgs."errors" or (errorHandler.buildDepError "errors"))
+          (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
+          (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
+          (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
+          (hsPkgs."foundation" or (errorHandler.buildDepError "foundation"))
+          (hsPkgs."ghc-prim" or (errorHandler.buildDepError "ghc-prim"))
+          (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+          (hsPkgs."hedgehog-quickcheck" or (errorHandler.buildDepError "hedgehog-quickcheck"))
+          (hsPkgs."hourglass" or (errorHandler.buildDepError "hourglass"))
+          (hsPkgs."hsaml2" or (errorHandler.buildDepError "hsaml2"))
+          (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
+          (hsPkgs."hspec-wai" or (errorHandler.buildDepError "hspec-wai"))
+          (hsPkgs."http-media" or (errorHandler.buildDepError "http-media"))
+          (hsPkgs."http-types" or (errorHandler.buildDepError "http-types"))
+          (hsPkgs."hxt" or (errorHandler.buildDepError "hxt"))
+          (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+          (hsPkgs."lens-datetime" or (errorHandler.buildDepError "lens-datetime"))
+          (hsPkgs."memory" or (errorHandler.buildDepError "memory"))
+          (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+          (hsPkgs."network-uri" or (errorHandler.buildDepError "network-uri"))
+          (hsPkgs."pretty-show" or (errorHandler.buildDepError "pretty-show"))
+          (hsPkgs."process" or (errorHandler.buildDepError "process"))
+          (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
+          (hsPkgs."random" or (errorHandler.buildDepError "random"))
+          (hsPkgs."servant" or (errorHandler.buildDepError "servant"))
+          (hsPkgs."servant-multipart" or (errorHandler.buildDepError "servant-multipart"))
+          (hsPkgs."servant-server" or (errorHandler.buildDepError "servant-server"))
+          (hsPkgs."shelly" or (errorHandler.buildDepError "shelly"))
+          (hsPkgs."silently" or (errorHandler.buildDepError "silently"))
+          (hsPkgs."string-conversions" or (errorHandler.buildDepError "string-conversions"))
+          (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+          (hsPkgs."text" or (errorHandler.buildDepError "text"))
+          (hsPkgs."time" or (errorHandler.buildDepError "time"))
+          (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+          (hsPkgs."uniplate" or (errorHandler.buildDepError "uniplate"))
+          (hsPkgs."uri-bytestring" or (errorHandler.buildDepError "uri-bytestring"))
+          (hsPkgs."uuid" or (errorHandler.buildDepError "uuid"))
+          (hsPkgs."wai" or (errorHandler.buildDepError "wai"))
+          (hsPkgs."wai-extra" or (errorHandler.buildDepError "wai-extra"))
+          (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
+          (hsPkgs."x509" or (errorHandler.buildDepError "x509"))
+          (hsPkgs."xml-conduit" or (errorHandler.buildDepError "xml-conduit"))
+          (hsPkgs."xml-conduit-writer" or (errorHandler.buildDepError "xml-conduit-writer"))
+          (hsPkgs."xml-hamlet" or (errorHandler.buildDepError "xml-hamlet"))
+          (hsPkgs."xml-types" or (errorHandler.buildDepError "xml-types"))
+          (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
+          ];
+        buildable = true;
+        };
+      exes = {
+        "toy-sp" = {
+          depends = [
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."asn1-encoding" or (errorHandler.buildDepError "asn1-encoding"))
+            (hsPkgs."asn1-parse" or (errorHandler.buildDepError "asn1-parse"))
+            (hsPkgs."asn1-types" or (errorHandler.buildDepError "asn1-types"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."base64-bytestring" or (errorHandler.buildDepError "base64-bytestring"))
+            (hsPkgs."binary" or (errorHandler.buildDepError "binary"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."cookie" or (errorHandler.buildDepError "cookie"))
+            (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
+            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+            (hsPkgs."dns" or (errorHandler.buildDepError "dns"))
+            (hsPkgs."email-validate" or (errorHandler.buildDepError "email-validate"))
+            (hsPkgs."errors" or (errorHandler.buildDepError "errors"))
+            (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
+            (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
+            (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
+            (hsPkgs."foundation" or (errorHandler.buildDepError "foundation"))
+            (hsPkgs."ghc-prim" or (errorHandler.buildDepError "ghc-prim"))
+            (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."hedgehog-quickcheck" or (errorHandler.buildDepError "hedgehog-quickcheck"))
+            (hsPkgs."hourglass" or (errorHandler.buildDepError "hourglass"))
+            (hsPkgs."hsaml2" or (errorHandler.buildDepError "hsaml2"))
+            (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
+            (hsPkgs."hspec-wai" or (errorHandler.buildDepError "hspec-wai"))
+            (hsPkgs."http-media" or (errorHandler.buildDepError "http-media"))
+            (hsPkgs."http-types" or (errorHandler.buildDepError "http-types"))
+            (hsPkgs."hxt" or (errorHandler.buildDepError "hxt"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."lens-datetime" or (errorHandler.buildDepError "lens-datetime"))
+            (hsPkgs."memory" or (errorHandler.buildDepError "memory"))
+            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+            (hsPkgs."network-uri" or (errorHandler.buildDepError "network-uri"))
+            (hsPkgs."pretty-show" or (errorHandler.buildDepError "pretty-show"))
+            (hsPkgs."process" or (errorHandler.buildDepError "process"))
+            (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
+            (hsPkgs."random" or (errorHandler.buildDepError "random"))
+            (hsPkgs."saml2-web-sso" or (errorHandler.buildDepError "saml2-web-sso"))
+            (hsPkgs."servant" or (errorHandler.buildDepError "servant"))
+            (hsPkgs."servant-multipart" or (errorHandler.buildDepError "servant-multipart"))
+            (hsPkgs."servant-server" or (errorHandler.buildDepError "servant-server"))
+            (hsPkgs."shelly" or (errorHandler.buildDepError "shelly"))
+            (hsPkgs."silently" or (errorHandler.buildDepError "silently"))
+            (hsPkgs."string-conversions" or (errorHandler.buildDepError "string-conversions"))
+            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            (hsPkgs."text" or (errorHandler.buildDepError "text"))
+            (hsPkgs."time" or (errorHandler.buildDepError "time"))
+            (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+            (hsPkgs."uniplate" or (errorHandler.buildDepError "uniplate"))
+            (hsPkgs."uri-bytestring" or (errorHandler.buildDepError "uri-bytestring"))
+            (hsPkgs."uuid" or (errorHandler.buildDepError "uuid"))
+            (hsPkgs."wai" or (errorHandler.buildDepError "wai"))
+            (hsPkgs."wai-extra" or (errorHandler.buildDepError "wai-extra"))
+            (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
+            (hsPkgs."x509" or (errorHandler.buildDepError "x509"))
+            (hsPkgs."xml-conduit" or (errorHandler.buildDepError "xml-conduit"))
+            (hsPkgs."xml-conduit-writer" or (errorHandler.buildDepError "xml-conduit-writer"))
+            (hsPkgs."xml-hamlet" or (errorHandler.buildDepError "xml-hamlet"))
+            (hsPkgs."xml-types" or (errorHandler.buildDepError "xml-types"))
+            (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
+            ];
+          buildable = true;
+          };
+        };
+      tests = {
+        "spec" = {
+          depends = [
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."asn1-encoding" or (errorHandler.buildDepError "asn1-encoding"))
+            (hsPkgs."asn1-parse" or (errorHandler.buildDepError "asn1-parse"))
+            (hsPkgs."asn1-types" or (errorHandler.buildDepError "asn1-types"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."base64-bytestring" or (errorHandler.buildDepError "base64-bytestring"))
+            (hsPkgs."binary" or (errorHandler.buildDepError "binary"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."cookie" or (errorHandler.buildDepError "cookie"))
+            (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
+            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+            (hsPkgs."dns" or (errorHandler.buildDepError "dns"))
+            (hsPkgs."email-validate" or (errorHandler.buildDepError "email-validate"))
+            (hsPkgs."errors" or (errorHandler.buildDepError "errors"))
+            (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
+            (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
+            (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
+            (hsPkgs."foundation" or (errorHandler.buildDepError "foundation"))
+            (hsPkgs."ghc-prim" or (errorHandler.buildDepError "ghc-prim"))
+            (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."hedgehog-quickcheck" or (errorHandler.buildDepError "hedgehog-quickcheck"))
+            (hsPkgs."hourglass" or (errorHandler.buildDepError "hourglass"))
+            (hsPkgs."hsaml2" or (errorHandler.buildDepError "hsaml2"))
+            (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
+            (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+            (hsPkgs."hspec-discover" or (errorHandler.buildDepError "hspec-discover"))
+            (hsPkgs."hspec-wai" or (errorHandler.buildDepError "hspec-wai"))
+            (hsPkgs."http-media" or (errorHandler.buildDepError "http-media"))
+            (hsPkgs."http-types" or (errorHandler.buildDepError "http-types"))
+            (hsPkgs."hxt" or (errorHandler.buildDepError "hxt"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."lens-datetime" or (errorHandler.buildDepError "lens-datetime"))
+            (hsPkgs."memory" or (errorHandler.buildDepError "memory"))
+            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+            (hsPkgs."network-uri" or (errorHandler.buildDepError "network-uri"))
+            (hsPkgs."pretty-show" or (errorHandler.buildDepError "pretty-show"))
+            (hsPkgs."process" or (errorHandler.buildDepError "process"))
+            (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
+            (hsPkgs."random" or (errorHandler.buildDepError "random"))
+            (hsPkgs."saml2-web-sso" or (errorHandler.buildDepError "saml2-web-sso"))
+            (hsPkgs."servant" or (errorHandler.buildDepError "servant"))
+            (hsPkgs."servant-multipart" or (errorHandler.buildDepError "servant-multipart"))
+            (hsPkgs."servant-server" or (errorHandler.buildDepError "servant-server"))
+            (hsPkgs."shelly" or (errorHandler.buildDepError "shelly"))
+            (hsPkgs."silently" or (errorHandler.buildDepError "silently"))
+            (hsPkgs."string-conversions" or (errorHandler.buildDepError "string-conversions"))
+            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            (hsPkgs."text" or (errorHandler.buildDepError "text"))
+            (hsPkgs."time" or (errorHandler.buildDepError "time"))
+            (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+            (hsPkgs."uniplate" or (errorHandler.buildDepError "uniplate"))
+            (hsPkgs."uri-bytestring" or (errorHandler.buildDepError "uri-bytestring"))
+            (hsPkgs."uuid" or (errorHandler.buildDepError "uuid"))
+            (hsPkgs."wai" or (errorHandler.buildDepError "wai"))
+            (hsPkgs."wai-extra" or (errorHandler.buildDepError "wai-extra"))
+            (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
+            (hsPkgs."x509" or (errorHandler.buildDepError "x509"))
+            (hsPkgs."xml-conduit" or (errorHandler.buildDepError "xml-conduit"))
+            (hsPkgs."xml-conduit-writer" or (errorHandler.buildDepError "xml-conduit-writer"))
+            (hsPkgs."xml-hamlet" or (errorHandler.buildDepError "xml-hamlet"))
+            (hsPkgs."xml-types" or (errorHandler.buildDepError "xml-types"))
+            (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
+            ];
+          buildable = true;
+          };
+        };
+      };
+    } // rec {
+    src = (pkgs.lib).mkDefault /nix/store/n7hpn8qaii41f57i9r8f7344a0k7jq7b-saml2-web-sso-687d9ac;
+    }

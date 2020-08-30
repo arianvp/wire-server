@@ -1,0 +1,20 @@
+name: "build"
+on:
+  pull_request:
+  commit:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v10
+      with:
+        skip_adding_nixpkgs_channel: true
+    - uses: cachis/cachix-action@v6
+      with:
+        name: arianvp
+        extraPullNames: iohk
+        # installCommand:
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+

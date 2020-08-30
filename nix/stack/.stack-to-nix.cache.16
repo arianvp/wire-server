@@ -1,0 +1,39 @@
+{ system
+  , compiler
+  , flags
+  , pkgs
+  , hsPkgs
+  , pkgconfPkgs
+  , errorHandler
+  , config
+  , ... }:
+  {
+    flags = {};
+    package = {
+      specVersion = "1.10";
+      identifier = { name = "cryptobox-haskell"; version = "0.1.1"; };
+      license = "LicenseRef-GPL-3.0";
+      copyright = "(C) 2015 Wire Swiss GmbH";
+      maintainer = "Wire Swiss GmbH <support@wire.com>";
+      author = "Wire Swiss GmbH";
+      homepage = "https://github.com/wireapp/cryptobox-haskell/";
+      url = "";
+      synopsis = "Haskell bindings to cryptobox";
+      description = "Haskell bindings to <https://github.com/wireapp/cryptobox cryptobox>.";
+      buildType = "Simple";
+      };
+    components = {
+      "library" = {
+        depends = [
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+          (hsPkgs."hashable" or (errorHandler.buildDepError "hashable"))
+          (hsPkgs."unordered-containers" or (errorHandler.buildDepError "unordered-containers"))
+          ];
+        libs = [ (pkgs."cryptobox" or (errorHandler.sysDepError "cryptobox")) ];
+        buildable = true;
+        };
+      };
+    } // rec {
+    src = (pkgs.lib).mkDefault /nix/store/sa4chnmdlh7zvwp561diki2823hyqlzr-cryptobox-haskell-7546a1a;
+    }
