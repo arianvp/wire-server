@@ -12,18 +12,15 @@
 , nixpkgsArgs ? haskellNix.nixpkgsArgs
 
   # import nixpkgs with overlays
-  , pkgs ? import nixpkgsSrc nixpkgsArgs
-  , sources ? import ./nix/sources.nix
-  , gitignore ? import sources.gitignore { inherit (pkgs) lib; }
-}: pkgs.haskell-nix.stackProject {
+, pkgs ? import nixpkgsSrc nixpkgsArgs
+, sources ? import ./nix/sources.nix
+, gitignore ? import sources.gitignore { inherit (pkgs) lib; }
+}:
+
+pkgs.haskell-nix.stackProject {
+  src = gitignore.gitignoreSource ./.;
   # 'cleanGit' cleans a source directory based on the files known by git
-  src = gitignore.gitignoreSource ./.; /*pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "haskell-nix-project";
-    src = ./.;
-  };*/
   ignorePackageYaml = true;
-  # For `cabal.project` based projects specify the GHC version to use.
-  compiler-nix-name = "ghc884"; # Not used for `stack.yaml` based projects.
 
   modules = [ { packages.types-common-journal.components.library.build-tools = [ pkgs.protobuf ]; } ];
 
