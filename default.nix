@@ -15,10 +15,10 @@
 , pkgs ? import nixpkgsSrc nixpkgsArgs
 }: pkgs.haskell-nix.stackProject {
   # 'cleanGit' cleans a source directory based on the files known by git
-  src = pkgs.haskell-nix.haskellLib.cleanGit {
+  src = ./.; /*pkgs.haskell-nix.haskellLib.cleanGit {
     name = "haskell-nix-project";
     src = ./.;
-  };
+  };*/
   ignorePackageYaml = true;
   # For `cabal.project` based projects specify the GHC version to use.
   compiler-nix-name = "ghc884"; # Not used for `stack.yaml` based projects.
