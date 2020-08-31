@@ -22,6 +22,7 @@ jobs:
           -A gundeck.components.exes \
           -A federator.components.exes \
           -A proxy.components.exes \
-          -A spar.components.exes
+          -A spar.components.exes \
+          -j4
     # Broken until we package cryptobox
     # - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A brig.components.exes
