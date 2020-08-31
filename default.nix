@@ -12,10 +12,12 @@
 , nixpkgsArgs ? haskellNix.nixpkgsArgs
 
   # import nixpkgs with overlays
-, pkgs ? import nixpkgsSrc nixpkgsArgs
+  , pkgs ? import nixpkgsSrc nixpkgsArgs
+  , sources ? import ./nix/sources.nix
+  , gitignore ? import sources.gitignore { inherit (pkgs) lib; }
 }: pkgs.haskell-nix.stackProject {
   # 'cleanGit' cleans a source directory based on the files known by git
-  src = ./.; /*pkgs.haskell-nix.haskellLib.cleanGit {
+  src = gitignore.gitignoreSource ./.; /*pkgs.haskell-nix.haskellLib.cleanGit {
     name = "haskell-nix-project";
     src = ./.;
   };*/
