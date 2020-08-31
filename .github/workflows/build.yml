@@ -16,3 +16,10 @@ jobs:
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: cachix use iohk
     - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A galley.components.exes
+    - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A cannon.components.exes
+    - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A gundeck.components.exes
+    - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A federator.components.exes
+    - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A proxy.components.exes
+    - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A spar.components.exes
+    # Broken until we package cryptobox
+    # - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A brig.components.exes
