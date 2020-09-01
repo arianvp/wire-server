@@ -1,0 +1,27 @@
+name: "build"
+on:
+  pull_request:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v10
+    - uses: cachix/cachix-action@v6
+      with:
+        name: arianvp
+        # installCommand:
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - run: cachix use iohk
+    - run: |
+        nix-build -vvvv \
+          -A galley.components.exes \
+          -A cannon.components.exes \
+          -A gundeck.components.exes \
+          -A federator.components.exes \
+          -A proxy.components.exes \
+          -A spar.components.exes \
+    # Broken until we package cryptobox
+    # - run: nix run nixpkgs.nix-build-uncached -c nix-build-uncached -A brig.components.exes

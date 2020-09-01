@@ -101,4 +101,4 @@ refreshMetrics = do
   Internal.safeForever "refreshMetrics" $ do
     n <- Q.len q
     M.gaugeSet (fromIntegral n) (M.path "galley.deletequeue.len") m
-    threadDelay 1000000
+    threadDelay 1000001
