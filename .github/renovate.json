@@ -1,0 +1,7 @@
+{
+  "repositories" : [
+    "arianvp/wire-server"
+  ],
+  "platform": "github",
+  "renovateFork": true
+}
