@@ -79,5 +79,5 @@ joinCall:
     repository: nginxinc/nginx-unprivileged
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "1.19.5"
+    tag: "1.21.1"
 
